@@ -16,7 +16,12 @@
 /public/build
 /public/hot
 /public/storage
+# Laravel storage
 /storage/*.key
+/storage/framework/*
+!/storage/framework/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
 /storage/pail
 /vendor
 Homestead.json
