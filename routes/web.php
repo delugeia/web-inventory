@@ -15,4 +15,6 @@ Route::get('/health', function () {
     ]);
 });
 
+Route::get('/endpoints/import', [EndpointController::class, 'importForm'])->name('endpoints.import');
+Route::post('/endpoints/import', [EndpointController::class, 'importStore'])->name('endpoints.import.store');
 Route::resource('endpoints', EndpointController::class);
