@@ -2,10 +2,22 @@
 
 namespace App\Http\Requests;
 
+use App\Support\EndpointLocationNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateEndpointRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $location = $this->input('location');
+
+        if (is_string($location)) {
+            $this->merge([
+                'location' => EndpointLocationNormalizer::normalize($location),
+            ]);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;

@@ -39,7 +39,9 @@
                     </div>
                 @endif
 
-                @yield('content')
+                <div class="mx-auto @yield('content_max_width', 'max-w-5xl') px-6 py-8">
+                    @yield('content')
+                </div>
             </main>
         </div>
     </body>

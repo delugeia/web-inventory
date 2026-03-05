@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreEndpointRequest;
 use App\Http\Requests\UpdateEndpointRequest;
 use App\Models\Endpoint;
+use App\Services\EndpointResolver;
+use App\Support\EndpointLocationNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\MessageBag;
 
@@ -21,6 +23,7 @@ class EndpointController extends Controller
         $allowedSorts = [
             'location',
             'name',
+            'resolved_url',
             'last_status_code',
             'last_checked_at',
         ];
@@ -50,6 +53,36 @@ class EndpointController extends Controller
             ]);
 
         return view('endpoints.index', compact('endpoints', 'search', 'sort', 'direction', 'perPage', 'perPageOptions'));
+    }
+
+    public function show(Endpoint $endpoint)
+    {
+        return view('endpoints.show', compact('endpoint'));
+    }
+
+    public function resolve(Endpoint $endpoint, EndpointResolver $resolver)
+    {
+        if ($endpoint->last_checked_at === null) {
+            $resolver->resolve($endpoint);
+            $endpoint->refresh();
+        }
+
+        return view('endpoints.resolve', compact('endpoint'));
+    }
+
+    public function resolveStore(Endpoint $endpoint, EndpointResolver $resolver)
+    {
+        $result = $resolver->resolve($endpoint);
+
+        if ($result['resolved']) {
+            return redirect()
+                ->route('endpoints.resolve', $endpoint)
+                ->with('status', "Resolved {$endpoint->location} to {$result['resolved_url']} with status {$result['status_code']}.");
+        }
+
+        return redirect()
+            ->route('endpoints.resolve', $endpoint)
+            ->with('status', "Resolve failed for {$endpoint->location}: {$result['failure_reason']}");
     }
 
     public function create()
@@ -104,6 +137,7 @@ class EndpointController extends Controller
 
             $parts = preg_split('/\s+/', $line, 2);
             $location = $parts[0] ?? '';
+            $location = EndpointLocationNormalizer::normalize($location);
             $name = isset($parts[1]) ? trim($parts[1]) : null;
             $lineNumber = $index + 1;
 
@@ -130,8 +164,13 @@ class EndpointController extends Controller
             $rows[] = [
                 'location' => $location,
                 'name' => $name !== '' ? $name : null,
+                'resolved_url' => null,
                 'last_status_code' => null,
                 'last_checked_at' => null,
+                'failure_reason' => null,
+                'redirect_followed' => false,
+                'redirect_count' => 0,
+                'redirect_chain' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

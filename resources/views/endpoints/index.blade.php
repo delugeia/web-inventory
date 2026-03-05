@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('content_max_width', 'max-w-screen-2xl')
+
 @section('content')
     <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -41,30 +43,48 @@
                         <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'name', 'direction' => $sort === 'name' && $direction === 'asc' ? 'desc' : 'asc']) }}">Name</a>
                     </th>
                     <th class="px-4 py-3 font-medium">
+                        <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'resolved_url', 'direction' => $sort === 'resolved_url' && $direction === 'asc' ? 'desc' : 'asc']) }}">Resolved URL</a>
+                    </th>
+                    <th class="px-4 py-3 font-medium">
                         <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'last_status_code', 'direction' => $sort === 'last_status_code' && $direction === 'asc' ? 'desc' : 'asc']) }}">Last Status Code</a>
                     </th>
                     <th class="px-4 py-3 font-medium">
                         <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'last_checked_at', 'direction' => $sort === 'last_checked_at' && $direction === 'asc' ? 'desc' : 'asc']) }}">Last Checked At</a>
                     </th>
-                    <th class="px-4 py-3 font-medium">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-200">
                 @forelse ($endpoints as $endpoint)
-                    <tr>
-                        <td class="px-4 py-3">{{ $endpoint->location }}</td>
-                        <td class="px-4 py-3">{{ $endpoint->name }}</td>
-                        <td class="px-4 py-3">{{ $endpoint->last_status_code }}</td>
-                        <td class="px-4 py-3">{{ $endpoint->last_checked_at }}</td>
-                        <td class="px-4 py-3">
+                    @php($detailsUrl = route('endpoints.show', $endpoint))
+                    <tr class="group transition hover:bg-slate-100">
+                        <td class="p-0">
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}" aria-label="Open endpoint {{ $endpoint->location }}">
                             <div class="flex items-center gap-2">
-                                <a class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" href="{{ route('endpoints.edit', $endpoint) }}">Edit</a>
-                                <form method="POST" action="{{ route('endpoints.destroy', $endpoint) }}">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50" type="submit">Delete</button>
-                                </form>
+                                <span>{{ $endpoint->location }}</span>
+                                <span class="text-slate-400 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">&rarr;</span>
                             </div>
+                            </a>
+                        </td>
+                        <td class="p-0">
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->name }}</a>
+                        </td>
+                        <td class="p-0">
+                            <a class="block px-4 py-3 text-slate-700 break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">
+                                @if ($endpoint->resolved_url)
+                                    @if ($endpoint->redirect_followed)
+                                        <span class="text-slate-500">&rarrhk;</span>
+                                    @endif
+                                    {{ $endpoint->resolved_url }}
+                                @else
+                                    --
+                                @endif
+                            </a>
+                        </td>
+                        <td class="p-0">
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->last_status_code }}</a>
+                        </td>
+                        <td class="p-0">
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->last_checked_at }}</a>
                         </td>
                     </tr>
                 @empty
