@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('endpoints.index')" :active="request()->routeIs('endpoints.*')">
                         {{ __('Endpoints') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('automation.index')" :active="request()->routeIs('automation.*')">
+                        {{ __('Automation') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -75,6 +78,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('endpoints.index')" :active="request()->routeIs('endpoints.*')">
                 {{ __('Endpoints') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('automation.index')" :active="request()->routeIs('automation.*')">
+                {{ __('Automation') }}
             </x-responsive-nav-link>
         </div>
 

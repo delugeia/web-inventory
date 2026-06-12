@@ -1,7 +1,8 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\EndpointController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -21,8 +22,13 @@ Route::middleware('auth')->group(function () {
         return view('dashboard');
     })->middleware('verified')->name('dashboard');
 
+    Route::get('/automation', [AutomationController::class, 'index'])->middleware('verified')->name('automation.index');
+    Route::post('/automation/resolve-multiple', [AutomationController::class, 'resolveMultipleStore'])->middleware('verified')->name('automation.resolve-multiple.store');
+    Route::get('/automation/runs/{run}', [AutomationController::class, 'runStatus'])->middleware('verified')->name('automation.runs.show');
+
     Route::get('/endpoints/import', [EndpointController::class, 'importForm'])->middleware('verified')->name('endpoints.import');
     Route::post('/endpoints/import', [EndpointController::class, 'importStore'])->middleware('verified')->name('endpoints.import.store');
+    Route::post('/endpoints/resolve/next', [EndpointController::class, 'resolveNextStore'])->middleware('verified')->name('endpoints.resolve.next.store');
     Route::get('/endpoints/{endpoint}/resolve', [EndpointController::class, 'resolve'])->middleware('verified')->name('endpoints.resolve');
     Route::post('/endpoints/{endpoint}/resolve', [EndpointController::class, 'resolveStore'])->middleware('verified')->name('endpoints.resolve.store');
     Route::resource('endpoints', EndpointController::class)->middleware('verified');

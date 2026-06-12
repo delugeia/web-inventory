@@ -60,13 +60,8 @@ class EndpointController extends Controller
         return view('endpoints.show', compact('endpoint'));
     }
 
-    public function resolve(Endpoint $endpoint, EndpointResolver $resolver)
+    public function resolve(Endpoint $endpoint)
     {
-        if ($endpoint->last_checked_at === null) {
-            $resolver->resolve($endpoint);
-            $endpoint->refresh();
-        }
-
         return view('endpoints.resolve', compact('endpoint'));
     }
 
@@ -83,6 +78,30 @@ class EndpointController extends Controller
         return redirect()
             ->route('endpoints.resolve', $endpoint)
             ->with('status', "Resolve failed for {$endpoint->location}: {$result['failure_reason']}");
+    }
+
+    public function resolveNextStore(EndpointResolver $resolver)
+    {
+        $endpoint = Endpoint::query()->nextToResolve()->first();
+
+        if ($endpoint === null) {
+            return redirect()
+                ->route('automation.index')
+                ->with('status', 'There are no endpoints to resolve.');
+        }
+
+        $result = $resolver->resolve($endpoint);
+        $endpoint->refresh();
+
+        if ($result['resolved']) {
+            return redirect()
+                ->route('endpoints.resolve', $endpoint)
+                ->with('status', "Resolved next endpoint {$endpoint->location} to {$result['resolved_url']} with status {$result['status_code']}.");
+        }
+
+        return redirect()
+            ->route('endpoints.resolve', $endpoint)
+            ->with('status', "Resolve failed for next endpoint {$endpoint->location}: {$result['failure_reason']}");
     }
 
     public function create()

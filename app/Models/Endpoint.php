@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\EndpointLocationNormalizer;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Endpoint extends Model
@@ -28,6 +29,23 @@ class Endpoint extends Model
             'redirect_count' => 'integer',
             'redirect_chain' => 'array',
         ];
+    }
+
+    /**
+     * Order endpoints by the next one that should be resolved.
+     *
+     * Never-checked endpoints come first, sorted alphabetically by location.
+     * Checked endpoints follow, sorted by oldest check time.
+     *
+     * @param Builder<Endpoint> $query
+     * @return Builder<Endpoint>
+     */
+    public function scopeNextToResolve(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw('last_checked_at is not null')
+            ->orderBy('last_checked_at')
+            ->orderBy('location');
     }
 
     protected function location(): Attribute
