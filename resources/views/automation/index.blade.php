@@ -15,24 +15,19 @@
         <div class="rounded-lg border border-slate-200 bg-white p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h2 class="text-base font-semibold text-slate-900">Resolve next endpoint</h2>
+                    <h2 class="text-base font-semibold text-slate-900">Resolve endpoint batch</h2>
                     <p class="mt-1 text-sm text-slate-600">
-                        Checks the next unresolved endpoint, prioritizing never-checked locations alphabetically and then the oldest checked location.
+                        Checks the next endpoints in queue, prioritizing never-checked locations alphabetically and then the oldest checked locations.
                     </p>
                 </div>
 
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <form method="POST" action="{{ route('endpoints.resolve.next.store') }}">
-                        @csrf
-                        <button class="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto" type="submit">Resolve Next</button>
-                    </form>
-
                     <form class="flex flex-col gap-2 sm:flex-row sm:items-end" method="POST" action="{{ route('automation.resolve-multiple.store') }}">
                         @csrf
                         <div>
                             <label class="block text-sm font-medium text-slate-700" for="endpoint_count">Endpoints</label>
                             <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 sm:w-32" id="endpoint_count" name="endpoint_count">
-                                @foreach ([2, 3, 4, 5, 10, 25, 50] as $count)
+                                @foreach ([1, 2, 3, 4, 5, 10, 25, 50] as $count)
                                     <option value="{{ $count }}" @selected(old('endpoint_count', 4) == $count)>{{ $count }}</option>
                                 @endforeach
                             </select>
@@ -126,9 +121,12 @@
                                     <td class="px-4 py-3 font-mono text-slate-500">#{{ $item->position }}</td>
                                     <td class="px-4 py-3 font-mono text-slate-900 break-all" data-location>{{ $item->location }}</td>
                                     <td class="px-4 py-3 font-mono text-slate-700 break-all" data-resolved-url>{{ $item->resolved_url ?: '--' }}</td>
-                                    <td class="px-4 py-3 font-mono text-slate-700" data-last-status-code>{{ $item->last_status_code ?: '--' }}</td>
+                                    <td class="px-4 py-3 font-mono text-slate-700">
+                                        <span data-last-status-code>{{ $item->last_status_code ?: '--' }}</span>
+                                        <span class="mt-1 block text-xs text-slate-500" data-response-time>{{ $item->response_time_ms !== null ? $item->response_time_ms.' ms' : '' }}</span>
+                                    </td>
                                     <td class="px-4 py-3 font-mono text-slate-700" data-last-checked-at>
-                                        {{ $item->last_checked_at ? $item->last_checked_at->toDayDateTimeString() : '--' }}
+                                        {{ \App\Support\DateTimeDisplay::format($item->last_checked_at) }}
                                     </td>
                                     <td class="px-4 py-3">
                                         <span
@@ -156,7 +154,7 @@
                                 <td class="px-4 py-3 font-mono text-slate-700">--</td>
                                 <td class="px-4 py-3 font-mono text-slate-700">--</td>
                                 <td class="px-4 py-3 font-mono text-slate-700" data-last-checked-at>
-                                    {{ $endpoint->last_checked_at ? $endpoint->last_checked_at->toDayDateTimeString() : '--' }}
+                                    {{ \App\Support\DateTimeDisplay::format($endpoint->last_checked_at) }}
                                 </td>
                                 <td class="px-4 py-3">
                                     <span
@@ -221,6 +219,7 @@
                     const resolvedUrl = row.querySelector('[data-resolved-url]');
                     const lastStatusCode = row.querySelector('[data-last-status-code]');
                     const lastCheckedAt = row.querySelector('[data-last-checked-at]');
+                    const responseTime = row.querySelector('[data-response-time]');
 
                     const presentationStatus = item.presentation_status || item.status;
 
@@ -243,6 +242,12 @@
 
                     if (lastStatusCode) {
                         lastStatusCode.textContent = item.last_status_code || '--';
+                    }
+
+                    if (responseTime) {
+                        responseTime.textContent = item.response_time_ms !== null && item.response_time_ms !== undefined
+                            ? `${item.response_time_ms} ms`
+                            : '';
                     }
 
                     if (lastCheckedAt) {

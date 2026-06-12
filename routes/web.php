@@ -28,9 +28,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/endpoints/import', [EndpointController::class, 'importForm'])->middleware('verified')->name('endpoints.import');
     Route::post('/endpoints/import', [EndpointController::class, 'importStore'])->middleware('verified')->name('endpoints.import.store');
-    Route::post('/endpoints/resolve/next', [EndpointController::class, 'resolveNextStore'])->middleware('verified')->name('endpoints.resolve.next.store');
-    Route::get('/endpoints/{endpoint}/resolve', [EndpointController::class, 'resolve'])->middleware('verified')->name('endpoints.resolve');
-    Route::post('/endpoints/{endpoint}/resolve', [EndpointController::class, 'resolveStore'])->middleware('verified')->name('endpoints.resolve.store');
+    Route::post('/endpoints/{endpoint}/recheck', [EndpointController::class, 'resolveStore'])->middleware('verified')->name('endpoints.resolve.store');
     Route::resource('endpoints', EndpointController::class)->middleware('verified');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\ProcessEndpointResolutionRun;
 use App\Models\Endpoint;
 use App\Models\EndpointResolutionRun;
+use App\Support\DateTimeDisplay;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class AutomationController extends Controller
     public function resolveMultipleStore(Request $request)
     {
         $validated = $request->validate([
-            'endpoint_count' => ['required', 'integer', 'in:2,3,4,5,10,25,50'],
+            'endpoint_count' => ['required', 'integer', 'in:1,2,3,4,5,10,25,50'],
         ]);
 
         $endpoints = Endpoint::query()
@@ -88,10 +89,22 @@ class AutomationController extends Controller
                     ? ($item->failure_reason ?: 'Unresolved')
                     : ucfirst($presentationStatus),
                 'resolved_url' => $item->resolved_url,
+                'resolved_host' => $item->resolved_host,
+                'resolved_scheme' => $item->resolved_scheme,
+                'host_changed' => $item->host_changed,
+                'base_host_changed' => $item->base_host_changed,
+                'http_to_https_redirect' => $item->http_to_https_redirect,
+                'content_type' => $item->content_type,
+                'response_time_ms' => $item->response_time_ms,
+                'dns_summary' => $item->dns_summary,
+                'platform_headers' => $item->platform_headers,
+                'security_headers' => $item->security_headers,
+                'canonical_url_check' => $item->canonical_url_check,
                 'last_status_code' => $item->last_status_code,
                 'failure_reason' => $item->failure_reason,
+                'failure_category' => $item->failure_category,
                 'last_checked_at' => $item->last_checked_at?->toIso8601String(),
-                'last_checked_at_display' => $item->last_checked_at?->toDayDateTimeString(),
+                'last_checked_at_display' => DateTimeDisplay::format($item->last_checked_at),
             ];
         });
 

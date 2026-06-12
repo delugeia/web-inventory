@@ -60,48 +60,19 @@ class EndpointController extends Controller
         return view('endpoints.show', compact('endpoint'));
     }
 
-    public function resolve(Endpoint $endpoint)
-    {
-        return view('endpoints.resolve', compact('endpoint'));
-    }
-
     public function resolveStore(Endpoint $endpoint, EndpointResolver $resolver)
     {
         $result = $resolver->resolve($endpoint);
 
         if ($result['resolved']) {
             return redirect()
-                ->route('endpoints.resolve', $endpoint)
-                ->with('status', "Resolved {$endpoint->location} to {$result['resolved_url']} with status {$result['status_code']}.");
+                ->route('endpoints.show', $endpoint)
+                ->with('status', "Rechecked {$endpoint->location}: resolved to {$result['resolved_url']} with status {$result['status_code']}.");
         }
 
         return redirect()
-            ->route('endpoints.resolve', $endpoint)
-            ->with('status', "Resolve failed for {$endpoint->location}: {$result['failure_reason']}");
-    }
-
-    public function resolveNextStore(EndpointResolver $resolver)
-    {
-        $endpoint = Endpoint::query()->nextToResolve()->first();
-
-        if ($endpoint === null) {
-            return redirect()
-                ->route('automation.index')
-                ->with('status', 'There are no endpoints to resolve.');
-        }
-
-        $result = $resolver->resolve($endpoint);
-        $endpoint->refresh();
-
-        if ($result['resolved']) {
-            return redirect()
-                ->route('endpoints.resolve', $endpoint)
-                ->with('status', "Resolved next endpoint {$endpoint->location} to {$result['resolved_url']} with status {$result['status_code']}.");
-        }
-
-        return redirect()
-            ->route('endpoints.resolve', $endpoint)
-            ->with('status', "Resolve failed for next endpoint {$endpoint->location}: {$result['failure_reason']}");
+            ->route('endpoints.show', $endpoint)
+            ->with('status', "Recheck failed for {$endpoint->location}: {$result['failure_reason']}");
     }
 
     public function create()

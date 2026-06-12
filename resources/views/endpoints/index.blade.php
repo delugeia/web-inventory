@@ -75,6 +75,9 @@
                                         <span class="text-slate-500">&rarrhk;</span>
                                     @endif
                                     {{ $endpoint->resolved_url }}
+                                    @if ($endpoint->resolved_host)
+                                        <span class="mt-1 block text-xs text-slate-500">{{ $endpoint->resolved_host }}</span>
+                                    @endif
                                 @else
                                     --
                                 @endif
@@ -84,7 +87,7 @@
                             <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->last_status_code }}</a>
                         </td>
                         <td class="p-0">
-                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->last_checked_at }}</a>
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ \App\Support\DateTimeDisplay::format($endpoint->last_checked_at) }}</a>
                         </td>
                     </tr>
                 @empty

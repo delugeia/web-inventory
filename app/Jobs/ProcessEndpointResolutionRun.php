@@ -55,8 +55,20 @@ class ProcessEndpointResolutionRun implements ShouldQueue
                     $item->update([
                         'status' => $result['resolved'] ? 'resolved' : 'unresolved',
                         'resolved_url' => $endpoint->resolved_url,
+                        'resolved_host' => $endpoint->resolved_host,
+                        'resolved_scheme' => $endpoint->resolved_scheme,
+                        'host_changed' => $endpoint->host_changed,
+                        'base_host_changed' => $endpoint->base_host_changed,
+                        'http_to_https_redirect' => $endpoint->http_to_https_redirect,
+                        'content_type' => $endpoint->content_type,
+                        'response_time_ms' => $endpoint->response_time_ms,
+                        'dns_summary' => $endpoint->dns_summary,
+                        'platform_headers' => $endpoint->platform_headers,
+                        'security_headers' => $endpoint->security_headers,
+                        'canonical_url_check' => $endpoint->canonical_url_check,
                         'last_status_code' => $endpoint->last_status_code,
                         'failure_reason' => $endpoint->failure_reason,
+                        'failure_category' => $endpoint->failure_category,
                         'last_checked_at' => $endpoint->last_checked_at,
                     ]);
 

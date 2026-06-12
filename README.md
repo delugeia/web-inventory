@@ -6,9 +6,20 @@ A Laravel-based inventory management web application.
 
 Web Inventory is a project built with the Laravel 12 framework, focusing on inventory management. It utilizes modern web technologies including Vite for frontend tooling, Tailwind CSS for styling, and Alpine.js for lightweight reactivity.
 
+## Endpoint Resolve
+
+Endpoint Resolve checks stored web endpoints and records the current reachable URL, status code, redirect chain, response timing, selected response headers, DNS details, and normalized failure categories. For bare domain endpoints, Resolve also checks the common canonical URL variants:
+
+- `http://domain.tld/`
+- `http://www.domain.tld/`
+- `https://domain.tld/`
+- `https://www.domain.tld/`
+
+The endpoint detail page reports whether those variants resolve to the preferred HTTPS non-`www` canonical URL, including expandable redirect chains for each variant. The Automation page can run Resolve in batches, including a batch size of `1` for a single queued endpoint.
+
 ## Tech Stack
 
-- **Language:** PHP 8.2+
+- **Language:** PHP 8.5+
 - **Framework:** Laravel 12.x
 - **Frontend Tooling:** Vite, Tailwind CSS, Alpine.js
 - **Package Managers:** Composer (PHP), NPM (JavaScript)
@@ -16,10 +27,11 @@ Web Inventory is a project built with the Laravel 12 framework, focusing on inve
 
 ## Requirements
 
-- PHP >= 8.2
+- PHP >= 8.5
 - Composer
 - Node.js & NPM
 - MySQL or another supported database engine
+- Required PHP extensions: ctype, curl, dom, fileinfo, filter, hash, mbstring, openssl, pdo, pdo_mysql, pdo_sqlite, session, tokenizer, xml, zip
 
 ## Setup
 
@@ -86,6 +98,17 @@ composer run test
 ```
 
 Tests are located in the `tests/` directory and use PHPUnit.
+
+## Deployment Notes
+
+After pulling changes that include new migrations or frontend view updates, run:
+
+```bash
+php artisan migrate
+npm run build
+```
+
+Existing endpoint rows keep their stored values until they are rechecked. New Resolve fields such as canonical URL coverage, DNS record values, response timing, and selected headers are populated on the next Resolve/Recheck run.
 
 ## Project Structure
 
