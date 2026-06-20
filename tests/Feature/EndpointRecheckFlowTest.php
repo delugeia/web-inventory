@@ -50,6 +50,29 @@ class EndpointRecheckFlowTest extends TestCase
             ->assertDontSee('href="'.url("/endpoints/{$endpoint->id}/resolve").'"', false);
     }
 
+    public function test_endpoint_detail_page_shows_page_title_after_resolved_url(): void
+    {
+        $user = User::factory()->create();
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'resolved_url' => 'https://example.com/',
+            'page_title' => 'Example Domain',
+            'last_status_code' => 200,
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('endpoints.show', $endpoint))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Resolved URL',
+                'https://example.com/',
+                'Page Title',
+                'Example Domain',
+                'Last Status Code',
+            ]);
+    }
+
     public function test_single_endpoint_recheck_updates_endpoint_and_redirects_to_detail_page(): void
     {
         $user = User::factory()->create();

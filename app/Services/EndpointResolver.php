@@ -28,6 +28,16 @@ class EndpointResolver
         'permissions-policy',
     ];
 
+    private const URL_ATTRIBUTES = [
+        'action',
+        'cite',
+        'data',
+        'formaction',
+        'href',
+        'poster',
+        'src',
+    ];
+
     /**
      * Resolve an endpoint by trying HTTP variants in priority order.
      *
@@ -577,6 +587,11 @@ class EndpointResolver
         $result['content_type'] = $response !== null ? $this->normalizedHeader($response, 'Content-Type') : null;
         $result['platform_headers'] = $response !== null ? $this->selectedHeaders($response, self::PLATFORM_HEADERS) : null;
         $result['security_headers'] = $response !== null ? $this->securityHeaders($response) : null;
+        $page = $response !== null
+            ? $this->pageDetails($response, (string) ($result['resolved_url'] ?? ''), $result['content_type'])
+            : ['page_content' => null, 'page_title' => null];
+        $result['page_content'] = $page['page_content'];
+        $result['page_title'] = $page['page_title'];
 
         return $result;
     }
@@ -640,6 +655,166 @@ class EndpointResolver
         }
 
         return $headers;
+    }
+
+    /**
+     * @return array{page_content: string|null, page_title: string|null}
+     */
+    private function pageDetails(object $response, string $resolvedUrl, ?string $contentType): array
+    {
+        if (! $this->isWebpageContentType($contentType) || ! method_exists($response, 'body')) {
+            return ['page_content' => null, 'page_title' => null];
+        }
+
+        $body = $response->body();
+        if (! is_string($body) || trim($body) === '') {
+            return ['page_content' => null, 'page_title' => null];
+        }
+
+        return $this->normalizePageContent($body, $resolvedUrl);
+    }
+
+    private function isWebpageContentType(?string $contentType): bool
+    {
+        if ($contentType === null) {
+            return false;
+        }
+
+        $contentType = strtolower($contentType);
+
+        return str_contains($contentType, 'text/html')
+            || str_contains($contentType, 'application/xhtml+xml');
+    }
+
+    /**
+     * @return array{page_content: string|null, page_title: string|null}
+     */
+    private function normalizePageContent(string $html, string $resolvedUrl): array
+    {
+        $document = new \DOMDocument();
+        $previousUseErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousUseErrors);
+
+        if (! $loaded) {
+            return [
+                'page_content' => $html,
+                'page_title' => $this->titleFromHtmlFallback($html),
+            ];
+        }
+
+        foreach ($document->childNodes as $node) {
+            if ($node->nodeType === XML_PI_NODE) {
+                $document->removeChild($node);
+                break;
+            }
+        }
+
+        $xpath = new \DOMXPath($document);
+        $baseUrl = $this->documentBaseUrl($xpath, $resolvedUrl);
+
+        foreach (self::URL_ATTRIBUTES as $attribute) {
+            foreach ($xpath->query('//*[@'.$attribute.']') ?: [] as $node) {
+                if (! $node instanceof \DOMElement) {
+                    continue;
+                }
+
+                $absoluteUrl = $this->absolutePageUrl($baseUrl, $node->getAttribute($attribute));
+                if ($absoluteUrl !== null) {
+                    $node->setAttribute($attribute, $absoluteUrl);
+                }
+            }
+        }
+
+        foreach ($xpath->query('//*[@srcset]') ?: [] as $node) {
+            if (! $node instanceof \DOMElement) {
+                continue;
+            }
+
+            $node->setAttribute('srcset', $this->absoluteSrcset($baseUrl, $node->getAttribute('srcset')));
+        }
+
+        $title = null;
+        $titleNode = $xpath->query('//title')->item(0);
+        if ($titleNode !== null) {
+            $title = $this->normalizePageTitle($titleNode->textContent);
+        }
+
+        return [
+            'page_content' => $document->saveHTML() ?: $html,
+            'page_title' => $title,
+        ];
+    }
+
+    private function documentBaseUrl(\DOMXPath $xpath, string $resolvedUrl): string
+    {
+        $baseNode = $xpath->query('//base[@href]')->item(0);
+        if ($baseNode instanceof \DOMElement) {
+            $baseUrl = $this->absolutePageUrl($resolvedUrl, $baseNode->getAttribute('href'));
+            if ($baseUrl !== null) {
+                return $baseUrl;
+            }
+        }
+
+        return $resolvedUrl;
+    }
+
+    private function absolutePageUrl(string $baseUrl, string $url): ?string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return null;
+        }
+
+        if (preg_match('/^[a-z][a-z0-9+\-.]*:/i', $url) === 1 && ! $this->hasSupportedHttpScheme($url)) {
+            return null;
+        }
+
+        if ($this->hasSupportedHttpScheme($url)) {
+            return $url;
+        }
+
+        return $this->resolveRedirectUrl($baseUrl, $url);
+    }
+
+    private function absoluteSrcset(string $baseUrl, string $srcset): string
+    {
+        $candidates = array_map('trim', explode(',', $srcset));
+        $normalized = [];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            $parts = preg_split('/\s+/', $candidate, 2);
+            $url = $parts[0] ?? '';
+            $descriptor = $parts[1] ?? null;
+            $absoluteUrl = $this->absolutePageUrl($baseUrl, $url) ?? $url;
+
+            $normalized[] = $descriptor !== null && $descriptor !== ''
+                ? "{$absoluteUrl} {$descriptor}"
+                : $absoluteUrl;
+        }
+
+        return implode(', ', $normalized);
+    }
+
+    private function titleFromHtmlFallback(string $html): ?string
+    {
+        if (preg_match('/<title\b[^>]*>(.*?)<\/title>/is', $html, $matches) !== 1) {
+            return null;
+        }
+
+        return $this->normalizePageTitle(html_entity_decode(strip_tags($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    private function normalizePageTitle(string $title): ?string
+    {
+        $title = trim(preg_replace('/\s+/', ' ', $title) ?? $title);
+
+        return $title !== '' ? mb_substr($title, 0, 512) : null;
     }
 
     /**
@@ -792,6 +967,8 @@ class EndpointResolver
 
         $endpoint->update([
             'resolved_url' => $resolvedUrl,
+            'page_title' => $probe['page_title'] ?? null,
+            'page_content' => $probe['page_content'] ?? null,
             'resolved_host' => $resolvedHost,
             'resolved_scheme' => $resolvedScheme,
             'host_changed' => $hostChanged,
@@ -815,6 +992,8 @@ class EndpointResolver
         return [
             'resolved' => true,
             'resolved_url' => $resolvedUrl,
+            'page_title' => $probe['page_title'] ?? null,
+            'page_content' => $probe['page_content'] ?? null,
             'resolved_host' => $resolvedHost,
             'resolved_scheme' => $resolvedScheme,
             'host_changed' => $hostChanged,
@@ -854,6 +1033,8 @@ class EndpointResolver
 
         $endpoint->update([
             'resolved_url' => null,
+            'page_title' => null,
+            'page_content' => null,
             'resolved_host' => null,
             'resolved_scheme' => null,
             'host_changed' => null,
@@ -877,6 +1058,8 @@ class EndpointResolver
         return [
             'resolved' => false,
             'resolved_url' => null,
+            'page_title' => null,
+            'page_content' => null,
             'resolved_host' => null,
             'resolved_scheme' => null,
             'host_changed' => null,

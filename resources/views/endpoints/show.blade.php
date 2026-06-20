@@ -83,6 +83,10 @@
                     </dd>
                 </div>
                 <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Page Title</dt>
+                    <dd class="px-5 py-3 text-sm text-slate-900 break-all">{{ $endpoint->page_title ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
                     <dt class="px-5 py-3 text-sm font-medium text-slate-600">Last Status Code</dt>
                     <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $endpoint->last_status_code ? $endpoint->last_status_code.' '.$statusText : '--' }}</dd>
                 </div>

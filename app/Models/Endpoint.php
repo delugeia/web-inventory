@@ -13,6 +13,8 @@ class Endpoint extends Model
         'location',
         'name',
         'resolved_url',
+        'page_title',
+        'page_content',
         'resolved_host',
         'resolved_scheme',
         'host_changed',

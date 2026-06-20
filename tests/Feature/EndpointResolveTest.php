@@ -80,6 +80,94 @@ class EndpointResolveTest extends TestCase
         $this->assertNull($endpoint->redirect_chain[1]['location']);
     }
 
+    public function test_webpage_content_title_and_absolute_urls_are_persisted(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'https://example.com/docs/page',
+        ]);
+
+        Http::fake(function ($request) {
+            $this->assertSame('https://example.com/docs/page', (string) $request->url());
+
+            return Http::response(<<<'HTML'
+<!doctype html>
+<html>
+    <head>
+        <title> Example
+            Documentation </title>
+        <link href="../assets/site.css" rel="stylesheet">
+    </head>
+    <body>
+        <a href="/about">About</a>
+        <a href="#intro">Intro</a>
+        <img src="images/logo.png" srcset="small.png 1x, /large.png 2x" alt="Logo">
+        <form action="?save=1"></form>
+        <script src="//cdn.example.com/app.js"></script>
+        <a href="mailto:hello@example.com">Email</a>
+    </body>
+</html>
+HTML, 200, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+            ]);
+        });
+
+        app(EndpointResolver::class)->resolve($endpoint);
+        $endpoint->refresh();
+
+        Http::assertSentCount(1);
+        $this->assertSame('Example Documentation', $endpoint->page_title);
+        $this->assertNotNull($endpoint->page_content);
+        $this->assertStringContainsString('href="https://example.com/assets/site.css"', $endpoint->page_content);
+        $this->assertStringContainsString('href="https://example.com/about"', $endpoint->page_content);
+        $this->assertStringContainsString('href="https://example.com/docs/page#intro"', $endpoint->page_content);
+        $this->assertStringContainsString('src="https://example.com/docs/images/logo.png"', $endpoint->page_content);
+        $this->assertStringContainsString('srcset="https://example.com/docs/small.png 1x, https://example.com/large.png 2x"', $endpoint->page_content);
+        $this->assertStringContainsString('action="https://example.com/docs/page?save=1"', $endpoint->page_content);
+        $this->assertStringContainsString('src="https://cdn.example.com/app.js"', $endpoint->page_content);
+        $this->assertStringContainsString('href="mailto:hello@example.com"', $endpoint->page_content);
+    }
+
+    public function test_non_html_success_does_not_persist_page_details(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'https://example.com/feed.json',
+        ]);
+
+        Http::fake([
+            '*' => Http::response('{"ok": true}', 200, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        app(EndpointResolver::class)->resolve($endpoint);
+        $endpoint->refresh();
+
+        $this->assertNull($endpoint->page_title);
+        $this->assertNull($endpoint->page_content);
+    }
+
+    public function test_failed_resolve_clears_stale_page_details(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'https://example.com/',
+            'page_title' => 'Old title',
+            'page_content' => '<html><title>Old title</title></html>',
+        ]);
+
+        Http::fake([
+            '*' => Http::response('', 302, [
+                'Location' => 'ftp://example.com/file',
+            ]),
+        ]);
+
+        app(EndpointResolver::class)->resolve($endpoint);
+        $endpoint->refresh();
+
+        $this->assertSame('redirect_unsupported_scheme', $endpoint->failure_reason);
+        $this->assertNull($endpoint->page_title);
+        $this->assertNull($endpoint->page_content);
+    }
+
     public function test_redirect_loop_is_detected(): void
     {
         $endpoint = Endpoint::query()->create([
