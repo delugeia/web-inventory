@@ -17,6 +17,12 @@ Endpoint Resolve checks stored web endpoints and records the current reachable U
 
 The endpoint detail page reports whether those variants resolve to the preferred HTTPS non-`www` canonical URL, including expandable redirect chains for each variant. The Automation page can run Resolve in batches, including a batch size of `1` for a single queued endpoint.
 
+HTTP error responses are treated as reached endpoints rather than missing responses. For example, a domain variant that returns `404` will retain its final URL and last status code while being categorized as an HTTP status failure. DNS failures, timeouts, and connection failures with no HTTP response keep URL/status fields blank.
+
+When a resolved response is an HTML webpage, Resolve stores the final page content without fetching referenced assets. Relative URLs in the stored HTML are rewritten to absolute URLs, and the page `<title>` is captured for display as the endpoint's Page Title.
+
+Endpoint details can open the stored HTML as a Cached Page View or a Cached Source View. The Cached Page View renders the stored HTML in a sandboxed iframe and allows external assets to load from their absolute URLs. The Cached Source View uses Prism.js to show the stored URL-modified HTML with syntax highlighting, line numbers, linkified URLs, and a line-wrap toggle.
+
 ## Tech Stack
 
 - **Language:** PHP 8.5+
@@ -109,6 +115,8 @@ npm run build
 ```
 
 Existing endpoint rows keep their stored values until they are rechecked. New Resolve fields such as canonical URL coverage, DNS record values, response timing, and selected headers are populated on the next Resolve/Recheck run.
+
+Cached page content, Page Title, and Cached Page/Source views are populated only after an endpoint is rechecked and an HTML response is captured.
 
 ## Maintenance Notes
 
