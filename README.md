@@ -1,6 +1,6 @@
 # Web Inventory
 
-A Laravel-based inventory management web application.
+An inventory tool for gathering information about domain usage and website availability. Given a domain name "Endpoint", the system tries to resolve the endpoint to a functioning website. It records errors, redirects, and other notable information about the result. Ultimately the goal is to create an easy to use tool for determining if a domain name is being actively used.
 
 ## Overview
 
