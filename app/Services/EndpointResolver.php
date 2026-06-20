@@ -97,6 +97,19 @@ class EndpointResolver
             $probe = $this->probeWithRedirects($url);
 
             if ($probe['resolved']) {
+                if (! $this->isSuccessfulFinalStatus($probe['status_code'])) {
+                    return $this->persistHttpStatusFailure(
+                        $endpoint,
+                        $host,
+                        $probe['resolved_url'],
+                        $probe['status_code'],
+                        $probe['redirect_chain'],
+                        $probe['redirect_count'],
+                        $dnsSummary,
+                        $probe
+                    );
+                }
+
                 return $this->persistSuccess(
                     $endpoint,
                     $host,
@@ -138,17 +151,32 @@ class EndpointResolver
         $canonicalUrl = "https://{$host}/";
         $canonicalCheck = $this->canonicalUrlCheck($host, $canonicalUrl, $probes);
         $winningProbe = $this->winningDomainProbe($canonicalUrl, $probes);
+        $reachedProbe = $winningProbe ?? $this->reachedDomainProbe($canonicalUrl, $probes);
 
-        if ($winningProbe !== null) {
+        if ($reachedProbe !== null) {
+            if (! $this->isSuccessfulFinalStatus($reachedProbe['status_code'])) {
+                return $this->persistHttpStatusFailure(
+                    $endpoint,
+                    $host,
+                    $reachedProbe['resolved_url'],
+                    $reachedProbe['status_code'],
+                    $reachedProbe['redirect_chain'],
+                    $reachedProbe['redirect_count'],
+                    $dnsSummary,
+                    $reachedProbe,
+                    $canonicalCheck
+                );
+            }
+
             return $this->persistSuccess(
                 $endpoint,
                 $host,
-                $winningProbe['resolved_url'],
-                $winningProbe['status_code'],
-                $winningProbe['redirect_chain'],
-                $winningProbe['redirect_count'],
+                $reachedProbe['resolved_url'],
+                $reachedProbe['status_code'],
+                $reachedProbe['redirect_chain'],
+                $reachedProbe['redirect_count'],
                 $dnsSummary,
-                $winningProbe,
+                $reachedProbe,
                 $canonicalCheck
             );
         }
@@ -933,9 +961,39 @@ class EndpointResolver
         return null;
     }
 
+    /**
+     * @param array<string, array<string, mixed>> $probes
+     * @return array<string, mixed>|null
+     */
+    private function reachedDomainProbe(string $canonicalUrl, array $probes): ?array
+    {
+        $canonicalKey = $this->canonicalUrlForLoop($canonicalUrl);
+
+        foreach ($probes as $probe) {
+            if (($probe['resolved'] ?? false)
+                && is_int($probe['status_code'] ?? null)
+                && $this->canonicalUrlForLoop((string) $probe['resolved_url']) === $canonicalKey) {
+                return $probe;
+            }
+        }
+
+        foreach ($probes as $probe) {
+            if (($probe['resolved'] ?? false) && is_int($probe['status_code'] ?? null)) {
+                return $probe;
+            }
+        }
+
+        return null;
+    }
+
     private function isSuccessfulFinalStatus(mixed $statusCode): bool
     {
         return is_int($statusCode) && $statusCode >= 200 && $statusCode < 400;
+    }
+
+    private function httpStatusFailureReason(int $statusCode): string
+    {
+        return "http_status:{$statusCode}";
     }
 
     /**
@@ -1008,6 +1066,80 @@ class EndpointResolver
             'status_code' => $statusCode,
             'failure_reason' => null,
             'failure_category' => null,
+            'redirect_count' => $redirectCount,
+            'redirect_chain' => $redirectChain,
+        ];
+    }
+
+    /**
+     * @param array<int, array{url: string, status_code: int, location: string|null}> $redirectChain
+     * @return array{
+     *     resolved: false,
+     *     resolved_url: string,
+     *     status_code: int,
+     *     failure_reason: string,
+     *     redirect_count: int,
+     *     redirect_chain: array<int, array{url: string, status_code: int, location: string|null}>
+     * }
+     */
+    private function persistHttpStatusFailure(
+        Endpoint $endpoint,
+        string $originalHost,
+        string $resolvedUrl,
+        int $statusCode,
+        array $redirectChain,
+        int $redirectCount,
+        ?array $dnsSummary,
+        array $probe,
+        ?array $canonicalUrlCheck = null
+    ): array {
+        $resolvedHost = $this->hostFromUrl($resolvedUrl);
+        $resolvedScheme = $this->schemeFromUrl($resolvedUrl);
+        $hostChanged = $resolvedHost !== null && $originalHost !== $resolvedHost;
+        $baseHostChanged = $resolvedHost !== null && $this->baseHost($originalHost) !== $this->baseHost($resolvedHost);
+        $httpToHttpsRedirect = $this->hasHttpToHttpsRedirect($redirectChain);
+        $failureReason = $this->httpStatusFailureReason($statusCode);
+        $failureCategory = $this->failureCategory($failureReason);
+
+        $endpoint->update([
+            'resolved_url' => $resolvedUrl,
+            'resolved_host' => $resolvedHost,
+            'resolved_scheme' => $resolvedScheme,
+            'host_changed' => $hostChanged,
+            'base_host_changed' => $baseHostChanged,
+            'http_to_https_redirect' => $httpToHttpsRedirect,
+            'content_type' => $probe['content_type'] ?? null,
+            'response_time_ms' => $probe['response_time_ms'] ?? null,
+            'dns_summary' => $dnsSummary,
+            'platform_headers' => $probe['platform_headers'] ?? null,
+            'security_headers' => $probe['security_headers'] ?? null,
+            'canonical_url_check' => $canonicalUrlCheck,
+            'last_status_code' => $statusCode,
+            'last_checked_at' => now(),
+            'failure_reason' => $failureReason,
+            'failure_category' => $failureCategory,
+            'redirect_followed' => $redirectCount > 0,
+            'redirect_count' => $redirectCount,
+            'redirect_chain' => count($redirectChain) > 0 ? $redirectChain : null,
+        ]);
+
+        return [
+            'resolved' => false,
+            'resolved_url' => $resolvedUrl,
+            'resolved_host' => $resolvedHost,
+            'resolved_scheme' => $resolvedScheme,
+            'host_changed' => $hostChanged,
+            'base_host_changed' => $baseHostChanged,
+            'http_to_https_redirect' => $httpToHttpsRedirect,
+            'content_type' => $probe['content_type'] ?? null,
+            'response_time_ms' => $probe['response_time_ms'] ?? null,
+            'dns_summary' => $dnsSummary,
+            'platform_headers' => $probe['platform_headers'] ?? null,
+            'security_headers' => $probe['security_headers'] ?? null,
+            'canonical_url_check' => $canonicalUrlCheck,
+            'status_code' => $statusCode,
+            'failure_reason' => $failureReason,
+            'failure_category' => $failureCategory,
             'redirect_count' => $redirectCount,
             'redirect_chain' => $redirectChain,
         ];
