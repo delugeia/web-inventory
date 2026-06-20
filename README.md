@@ -110,6 +110,10 @@ npm run build
 
 Existing endpoint rows keep their stored values until they are rechecked. New Resolve fields such as canonical URL coverage, DNS record values, response timing, and selected headers are populated on the next Resolve/Recheck run.
 
+## Maintenance Notes
+
+- Address the 10 NPM package vulnerabilities reported by `npm install`/`npm audit` after adding frontend source-viewer dependencies.
+
 ## Project Structure
 
 - `app/`: Core application logic (Models, Controllers, Services, etc.).

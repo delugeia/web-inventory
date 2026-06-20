@@ -83,6 +83,17 @@
                     </dd>
                 </div>
                 <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Cached Copy</dt>
+                    <dd class="flex flex-wrap gap-2 px-5 py-3 text-sm text-slate-900">
+                        @if (is_string($endpoint->page_content) && trim($endpoint->page_content) !== '')
+                            <a class="inline-flex items-center justify-center rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" href="{{ route('endpoints.cached', $endpoint) }}" target="_blank" rel="noopener noreferrer">View</a>
+                            <a class="inline-flex items-center justify-center rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" href="{{ route('endpoints.cached.source', $endpoint) }}" target="_blank" rel="noopener noreferrer">View Source</a>
+                        @else
+                            <span class="font-mono">--</span>
+                        @endif
+                    </dd>
+                </div>
+                <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
                     <dt class="px-5 py-3 text-sm font-medium text-slate-600">Page Title</dt>
                     <dd class="px-5 py-3 text-sm text-slate-900 break-all">{{ $endpoint->page_title ?: '--' }}</dd>
                 </div>

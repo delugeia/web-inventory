@@ -60,6 +60,36 @@ class EndpointController extends Controller
         return view('endpoints.show', compact('endpoint'));
     }
 
+    public function cached(Endpoint $endpoint)
+    {
+        $this->abortIfMissingCachedContent($endpoint);
+
+        return response()
+            ->view('endpoints.cached', compact('endpoint'))
+            ->header('X-Robots-Tag', 'noindex, nofollow');
+    }
+
+    public function cachedContent(Endpoint $endpoint)
+    {
+        $this->abortIfMissingCachedContent($endpoint);
+
+        return response($endpoint->page_content, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Robots-Tag' => 'noindex, nofollow',
+        ]);
+    }
+
+    public function cachedSource(Endpoint $endpoint)
+    {
+        $this->abortIfMissingCachedContent($endpoint);
+
+        return response()
+            ->view('endpoints.cached-source', compact('endpoint'))
+            ->header('X-Content-Type-Options', 'nosniff')
+            ->header('X-Robots-Tag', 'noindex, nofollow');
+    }
+
     public function resolveStore(Endpoint $endpoint, EndpointResolver $resolver)
     {
         $result = $resolver->resolve($endpoint);
@@ -73,6 +103,13 @@ class EndpointController extends Controller
         return redirect()
             ->route('endpoints.show', $endpoint)
             ->with('status', "Recheck failed for {$endpoint->location}: {$result['failure_reason']}");
+    }
+
+    private function abortIfMissingCachedContent(Endpoint $endpoint): void
+    {
+        if (! is_string($endpoint->page_content) || trim($endpoint->page_content) === '') {
+            abort(404);
+        }
     }
 
     public function create()

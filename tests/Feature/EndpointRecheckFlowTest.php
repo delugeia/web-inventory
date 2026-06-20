@@ -73,6 +73,162 @@ class EndpointRecheckFlowTest extends TestCase
             ]);
     }
 
+    public function test_endpoint_detail_page_shows_cached_copy_links_when_content_exists(): void
+    {
+        $user = User::factory()->create();
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'resolved_url' => 'https://example.com/',
+            'page_content' => '<html><body>Cached</body></html>',
+            'page_title' => 'Example Domain',
+            'last_status_code' => 200,
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('endpoints.show', $endpoint))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Resolved URL',
+                'https://example.com/',
+                'Cached Copy',
+                'View',
+                'View Source',
+                'Page Title',
+            ])
+            ->assertSee(route('endpoints.cached', $endpoint), false)
+            ->assertSee(route('endpoints.cached.source', $endpoint), false);
+    }
+
+    public function test_endpoint_detail_page_shows_cached_copy_unavailable_when_content_is_missing(): void
+    {
+        $user = User::factory()->create();
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'resolved_url' => 'https://example.com/',
+            'last_status_code' => 200,
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('endpoints.show', $endpoint))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Resolved URL',
+                'https://example.com/',
+                'Cached Copy',
+                '--',
+                'Page Title',
+            ])
+            ->assertDontSee(route('endpoints.cached', $endpoint), false)
+            ->assertDontSee(route('endpoints.cached.source', $endpoint), false);
+    }
+
+    public function test_cached_copy_page_renders_wrapper_banner_and_sandboxed_iframe(): void
+    {
+        $user = User::factory()->create();
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'resolved_url' => 'https://example.com/',
+            'page_content' => '<html><body>Cached</body></html>',
+            'page_title' => 'Example Domain',
+            'last_checked_at' => CarbonImmutable::parse('2026-06-20 18:15:00', 'UTC'),
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('endpoints.cached', $endpoint))
+            ->assertOk()
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+            ->assertSee('Cached Page View (Sat, 20 Jun 2026, 1:15 PM)')
+            ->assertSee('NOTE: External assets may load from the live site.')
+            ->assertSee('bg-rose-50', false)
+            ->assertSee(route('endpoints.cached.source', $endpoint), false)
+            ->assertSee('View Cached Source')
+            ->assertSee('https://example.com/', false)
+            ->assertSee(route('endpoints.cached.content', $endpoint), false)
+            ->assertSee('sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"', false)
+            ->assertDontSee('Endpoint Details')
+            ->assertDontSee('Live URL');
+    }
+
+    public function test_cached_copy_content_returns_exact_cached_html(): void
+    {
+        $user = User::factory()->create();
+        $html = '<html><head><title>Cached</title></head><body><a href="https://example.com/about">About</a></body></html>';
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'page_content' => $html,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('endpoints.cached.content', $endpoint));
+
+        $response
+            ->assertOk()
+            ->assertHeader('Content-Type', 'text/html; charset=UTF-8')
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+
+        $this->assertSame($html, $response->getContent());
+    }
+
+    public function test_cached_copy_source_renders_highlighted_source_viewer(): void
+    {
+        $user = User::factory()->create();
+        $html = '<html><body><a href="https://example.com/about">About</a><script>alert("cached")</script></body></html>';
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'resolved_url' => 'https://example.com/',
+            'page_content' => $html,
+            'last_checked_at' => CarbonImmutable::parse('2026-06-20 18:15:00', 'UTC'),
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('endpoints.cached.source', $endpoint));
+
+        $response
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+            ->assertSee('Cached Source View (Sat, 20 Jun 2026, 1:15 PM)')
+            ->assertSee('URLs have been updated to absolute.')
+            ->assertSee('Line wrap')
+            ->assertSee('bg-rose-50', false)
+            ->assertSee(route('endpoints.cached', $endpoint), false)
+            ->assertSee('View Cached Page')
+            ->assertSee('line-numbers language-html', false)
+            ->assertSee(e($html), false)
+            ->assertDontSee($html, false)
+            ->assertDontSee('Endpoint Details');
+    }
+
+    public function test_cached_copy_routes_return_not_found_without_cached_content(): void
+    {
+        $user = User::factory()->create();
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+        ]);
+
+        $this->actingAs($user)->get(route('endpoints.cached', $endpoint))->assertNotFound();
+        $this->actingAs($user)->get(route('endpoints.cached.content', $endpoint))->assertNotFound();
+        $this->actingAs($user)->get(route('endpoints.cached.source', $endpoint))->assertNotFound();
+    }
+
+    public function test_cached_copy_routes_require_authentication(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+            'page_content' => '<html><body>Cached</body></html>',
+        ]);
+
+        $this->get(route('endpoints.cached', $endpoint))->assertRedirect(route('login'));
+        $this->get(route('endpoints.cached.content', $endpoint))->assertRedirect(route('login'));
+        $this->get(route('endpoints.cached.source', $endpoint))->assertRedirect(route('login'));
+    }
+
     public function test_single_endpoint_recheck_updates_endpoint_and_redirects_to_detail_page(): void
     {
         $user = User::factory()->create();
