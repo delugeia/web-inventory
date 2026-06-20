@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Endpoint;
 use App\Services\EndpointResolver;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -221,6 +222,64 @@ class EndpointResolveTest extends TestCase
             array_column($endpoint->canonical_url_check['variants'], 'result')
         );
         $this->assertSame(2, $endpoint->canonical_url_check['variants'][1]['redirect_count']);
+    }
+
+    public function test_domain_resolve_preserves_reached_http_error_status(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+        ]);
+
+        Http::fake(function ($request) {
+            $url = (string) $request->url();
+
+            if ($url === 'http://example.com/') {
+                return Http::response('Not found', 404, [
+                    'Content-Type' => 'text/html; charset=UTF-8',
+                    'Server' => 'nginx',
+                ]);
+            }
+
+            throw new ConnectionException("Connection failed: {$url}");
+        });
+
+        $result = app(EndpointResolver::class)->resolve($endpoint);
+        $endpoint->refresh();
+
+        $this->assertFalse($result['resolved']);
+        $this->assertSame('http://example.com/', $result['resolved_url']);
+        $this->assertSame(404, $result['status_code']);
+        $this->assertSame('http_status:404', $result['failure_reason']);
+        $this->assertSame('http://example.com/', $endpoint->resolved_url);
+        $this->assertSame(404, $endpoint->last_status_code);
+        $this->assertSame('http_status:404', $endpoint->failure_reason);
+        $this->assertSame('http_status', $endpoint->failure_category);
+        $this->assertSame('text/html; charset=UTF-8', $endpoint->content_type);
+        $this->assertSame('nginx', $endpoint->platform_headers['server']);
+        $this->assertSame('fail', $endpoint->canonical_url_check['status']);
+        $this->assertSame(404, $endpoint->canonical_url_check['variants'][0]['status_code']);
+    }
+
+    public function test_domain_resolve_without_any_http_response_keeps_status_blank(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'example.com',
+        ]);
+
+        Http::fake(function ($request) {
+            throw new ConnectionException('Connection failed: '.(string) $request->url());
+        });
+
+        $result = app(EndpointResolver::class)->resolve($endpoint);
+        $endpoint->refresh();
+
+        $this->assertFalse($result['resolved']);
+        $this->assertNull($result['resolved_url']);
+        $this->assertNull($result['status_code']);
+        $this->assertNull($endpoint->resolved_url);
+        $this->assertNull($endpoint->last_status_code);
+        $this->assertSame('connection', $endpoint->failure_category);
+        $this->assertSame('fail', $endpoint->canonical_url_check['status']);
     }
 
     public function test_cross_domain_redirect_sets_host_change_flags(): void
