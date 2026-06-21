@@ -136,8 +136,8 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, string> $urls
-     * @param array{a_count: int, aaaa_count: int, cname: string|null, a_records?: array<int, string>, aaaa_records?: array<int, string>}|null $dnsSummary
+     * @param  array<int, string>  $urls
+     * @param  array{a_count: int, aaaa_count: int, cname: string|null, a_records?: array<int, string>, aaaa_records?: array<int, string>}|null  $dnsSummary
      * @return array<string, mixed>
      */
     private function resolveDomainEndpoint(Endpoint $endpoint, string $host, array $urls, ?array $dnsSummary): array
@@ -573,7 +573,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, array<string, mixed>> $records
+     * @param  array<int, array<string, mixed>>  $records
      * @return array<int, string>
      */
     private function recordValues(array $records, string $key): array
@@ -591,7 +591,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, array<string, mixed>> $records
+     * @param  array<int, array<string, mixed>>  $records
      */
     private function firstCnameTarget(array $records): ?string
     {
@@ -606,7 +606,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<string, mixed> $result
+     * @param  array<string, mixed>  $result
      * @return array<string, mixed>
      */
     private function withProbeMetadata(array $result, int $startedAt, ?object $response = null): array
@@ -650,7 +650,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, string> $headers
+     * @param  array<int, string>  $headers
      * @return array<string, string>|null
      */
     private function selectedHeaders(object $response, array $headers): ?array
@@ -719,7 +719,7 @@ class EndpointResolver
      */
     private function normalizePageContent(string $html, string $resolvedUrl): array
     {
-        $document = new \DOMDocument();
+        $document = new \DOMDocument;
         $previousUseErrors = libxml_use_internal_errors(true);
         $loaded = $document->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
         libxml_clear_errors();
@@ -845,8 +845,19 @@ class EndpointResolver
         return $title !== '' ? mb_substr($title, 0, 512) : null;
     }
 
+    private function nonEmptyString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value !== '' ? $value : null;
+    }
+
     /**
-     * @param array<string, array<string, mixed>> $probes
+     * @param  array<string, array<string, mixed>>  $probes
      * @return array<string, mixed>
      */
     private function canonicalUrlCheck(string $host, string $canonicalUrl, array $probes): array
@@ -872,7 +883,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<string, mixed> $probe
+     * @param  array<string, mixed>  $probe
      * @return array<string, mixed>
      */
     private function canonicalVariant(string $url, string $canonicalUrl, array $probe): array
@@ -937,7 +948,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<string, array<string, mixed>> $probes
+     * @param  array<string, array<string, mixed>>  $probes
      * @return array<string, mixed>|null
      */
     private function winningDomainProbe(string $canonicalUrl, array $probes): ?array
@@ -962,7 +973,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<string, array<string, mixed>> $probes
+     * @param  array<string, array<string, mixed>>  $probes
      * @return array<string, mixed>|null
      */
     private function reachedDomainProbe(string $canonicalUrl, array $probes): ?array
@@ -1023,7 +1034,7 @@ class EndpointResolver
         $baseHostChanged = $resolvedHost !== null && $this->baseHost($originalHost) !== $this->baseHost($resolvedHost);
         $httpToHttpsRedirect = $this->hasHttpToHttpsRedirect($redirectChain);
 
-        $endpoint->update([
+        $attributes = [
             'resolved_url' => $resolvedUrl,
             'page_title' => $probe['page_title'] ?? null,
             'page_content' => $probe['page_content'] ?? null,
@@ -1045,7 +1056,14 @@ class EndpointResolver
             'redirect_followed' => $redirectCount > 0,
             'redirect_count' => $redirectCount,
             'redirect_chain' => count($redirectChain) > 0 ? $redirectChain : null,
-        ]);
+        ];
+
+        $pageTitle = $this->nonEmptyString($probe['page_title'] ?? null);
+        if ($pageTitle !== null && $this->nonEmptyString($endpoint->name) === null) {
+            $attributes['name'] = $pageTitle;
+        }
+
+        $endpoint->update($attributes);
 
         return [
             'resolved' => true,
@@ -1072,7 +1090,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, array{url: string, status_code: int, location: string|null}> $redirectChain
+     * @param  array<int, array{url: string, status_code: int, location: string|null}>  $redirectChain
      * @return array{
      *     resolved: false,
      *     resolved_url: string,
@@ -1146,7 +1164,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, array{url: string, status_code: int, location: string|null}> $redirectChain
+     * @param  array<int, array{url: string, status_code: int, location: string|null}>  $redirectChain
      * @return array{
      *     resolved: bool,
      *     resolved_url: null,
@@ -1244,7 +1262,7 @@ class EndpointResolver
     }
 
     /**
-     * @param array<int, array{url: string, status_code: int, location: string|null}> $redirectChain
+     * @param  array<int, array{url: string, status_code: int, location: string|null}>  $redirectChain
      */
     private function hasHttpToHttpsRedirect(array $redirectChain): bool
     {
@@ -1353,6 +1371,7 @@ class EndpointResolver
 
             if ($segment === '..') {
                 array_pop($normalized);
+
                 continue;
             }
 

@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Endpoint;
 use App\Services\EndpointResolver;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -117,6 +117,7 @@ HTML, 200, [
 
         Http::assertSentCount(1);
         $this->assertSame('Example Documentation', $endpoint->page_title);
+        $this->assertSame('Example Documentation', $endpoint->name);
         $this->assertNotNull($endpoint->page_content);
         $this->assertStringContainsString('href="https://example.com/assets/site.css"', $endpoint->page_content);
         $this->assertStringContainsString('href="https://example.com/about"', $endpoint->page_content);
@@ -126,6 +127,26 @@ HTML, 200, [
         $this->assertStringContainsString('action="https://example.com/docs/page?save=1"', $endpoint->page_content);
         $this->assertStringContainsString('src="https://cdn.example.com/app.js"', $endpoint->page_content);
         $this->assertStringContainsString('href="mailto:hello@example.com"', $endpoint->page_content);
+    }
+
+    public function test_webpage_title_does_not_overwrite_existing_endpoint_name(): void
+    {
+        $endpoint = Endpoint::query()->create([
+            'location' => 'https://example.com/',
+            'name' => 'Curated Endpoint Name',
+        ]);
+
+        Http::fake([
+            '*' => Http::response('<html><head><title>Discovered Page Title</title></head><body>Content</body></html>', 200, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+            ]),
+        ]);
+
+        app(EndpointResolver::class)->resolve($endpoint);
+        $endpoint->refresh();
+
+        $this->assertSame('Discovered Page Title', $endpoint->page_title);
+        $this->assertSame('Curated Endpoint Name', $endpoint->name);
     }
 
     public function test_non_html_success_does_not_persist_page_details(): void

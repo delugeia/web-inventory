@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex, nofollow">
-        <title>Cached Copy - {{ $endpoint->page_title ?: $endpoint->location }}</title>
+        <title>{{ $cachedContentSource === 'rendered' ? 'Rendered Copy' : 'Cached Copy' }} - {{ $endpoint->rendered_page_title ?: ($endpoint->page_title ?: $endpoint->location) }}</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-slate-100 text-slate-900">
@@ -13,13 +13,13 @@
                 <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h1 class="text-sm font-semibold text-slate-900">
-                            Cached Page View ({{ \App\Support\DateTimeDisplay::format($endpoint->last_checked_at) }})
+                            {{ $cachedContentSource === 'rendered' ? 'Rendered Page View' : 'Cached Page View' }} ({{ \App\Support\DateTimeDisplay::format($cachedContentSource === 'rendered' ? $endpoint->rendered_captured_at : $endpoint->last_checked_at) }})
                             <span class="font-semibold text-rose-700">NOTE: External assets may load from the live site.</span>
                         </h1>
                         <p class="font-mono text-xs text-slate-600 break-all">{{ $endpoint->resolved_url ?: $endpoint->location }}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <a class="inline-flex items-center justify-center rounded-md border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-rose-100" href="{{ route('endpoints.cached.source', $endpoint) }}">View Cached Source</a>
+                        <a class="inline-flex items-center justify-center rounded-md border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-rose-100" href="{{ route('endpoints.cached.source', $endpoint) }}">View {{ $cachedContentSource === 'rendered' ? 'Rendered' : 'Cached' }} Source</a>
                     </div>
                 </div>
             </header>

@@ -2,6 +2,29 @@
 
 @section('content_max_width', 'max-w-screen-2xl')
 
+@push('head')
+    @vite(['resources/js/cached-source.js'])
+    <style>
+        pre.source-code {
+            margin: 0;
+            border-radius: 0;
+            max-height: 32rem;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        pre.source-code code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        pre.source-code.source-wrap,
+        pre.source-code.source-wrap code {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
+@endpush
+
 @section('content')
     @php
         $statusText = $endpoint->last_status_code
@@ -13,6 +36,7 @@
         $dnsSummary = is_array($endpoint->dns_summary) ? $endpoint->dns_summary : null;
         $platformHeaders = is_array($endpoint->platform_headers) ? $endpoint->platform_headers : [];
         $securityHeaders = is_array($endpoint->security_headers) ? $endpoint->security_headers : [];
+        $latestPageAnalysis = $endpoint->latestPageAnalysis;
         $boolLabel = fn ($value) => $value === null ? '--' : ($value ? 'yes' : 'no');
         $badgeClass = fn ($status) => match ($status) {
             'pass', 'ok', 'canonical', 'to_canonical', 'forces_https' => 'bg-emerald-100 text-emerald-800',
@@ -39,7 +63,7 @@
         };
     @endphp
 
-    <div x-data="{ confirmDelete: false }" class="space-y-6">
+    <div x-data="{ confirmDelete: false, wrapPreparedInput: false }" class="space-y-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <a class="text-sm text-slate-600 underline hover:text-slate-900" href="{{ route('endpoints.index') }}">Back to Endpoints</a>
@@ -55,13 +79,21 @@
                     @csrf
                     <button class="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" type="submit">Recheck</button>
                 </form>
+                <form method="POST" action="{{ route('endpoints.rendered-capture.store', $endpoint) }}">
+                    @csrf
+                    <button class="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" type="submit">Capture Rendered</button>
+                </form>
+                <form method="POST" action="{{ route('endpoints.page-analysis.store', $endpoint) }}">
+                    @csrf
+                    <button class="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" type="submit">Analyze Page</button>
+                </form>
                 <button class="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50" type="button" @click="confirmDelete = true">Delete</button>
             </div>
         </div>
 
         <section class="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
-                <h2 class="text-lg font-semibold text-slate-900">Endpoint Details</h2>
+                <h2 class="text-lg font-semibold text-slate-900">Endpoint Profile</h2>
                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $endpoint->failure_reason ? 'bg-rose-100 text-rose-800' : ($endpoint->resolved_url ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700') }}">
                     {{ $endpoint->failure_reason ? 'Unresolved' : ($endpoint->resolved_url ? 'Resolved' : 'Unchecked') }}
                 </span>
@@ -71,6 +103,14 @@
                 <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
                     <dt class="px-5 py-3 text-sm font-medium text-slate-600">Location</dt>
                     <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $endpoint->location }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Managed By</dt>
+                    <dd class="px-5 py-3 text-sm text-slate-900 break-all">{{ $endpoint->managed_by ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">DNS Provider</dt>
+                    <dd class="px-5 py-3 text-sm text-slate-900 break-all">{{ $endpoint->dns_provider ?: '--' }}</dd>
                 </div>
                 <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
                     <dt class="px-5 py-3 text-sm font-medium text-slate-600">Resolved URL</dt>
@@ -85,7 +125,7 @@
                 <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[220px_1fr]">
                     <dt class="px-5 py-3 text-sm font-medium text-slate-600">Cached Copy</dt>
                     <dd class="flex flex-wrap gap-2 px-5 py-3 text-sm text-slate-900">
-                        @if (is_string($endpoint->page_content) && trim($endpoint->page_content) !== '')
+                        @if ($cachedContentAvailable)
                             <a class="inline-flex items-center justify-center rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" href="{{ route('endpoints.cached', $endpoint) }}" target="_blank" rel="noopener noreferrer">View</a>
                             <a class="inline-flex items-center justify-center rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" href="{{ route('endpoints.cached.source', $endpoint) }}" target="_blank" rel="noopener noreferrer">View Source</a>
                         @else
@@ -210,9 +250,9 @@
                     <h2 class="text-lg font-semibold text-slate-900">Server Header Hints</h2>
                 </div>
                 <dl>
-                    @forelse ($platformHeaders as $header => $value)
+                    @forelse ($platformHeaders as $headerName => $value)
                         <div class="grid grid-cols-1 border-t border-slate-200 first:border-t-0 sm:grid-cols-[180px_1fr]">
-                            <dt class="px-5 py-3 text-sm font-medium text-slate-600">{{ $header }}</dt>
+                            <dt class="px-5 py-3 text-sm font-medium text-slate-600">{{ $headerName }}</dt>
                             <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $value }}</dd>
                         </div>
                     @empty
@@ -255,7 +295,7 @@
 
         <section class="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div class="border-b border-slate-200 px-5 py-4">
-                <h2 class="text-lg font-semibold text-slate-900">Details</h2>
+                <h2 class="text-lg font-semibold text-slate-900">Miscellaneous Details</h2>
             </div>
             <dl class="grid grid-cols-1 lg:grid-cols-2">
                 <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
@@ -287,6 +327,52 @@
                     <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $boolLabel($endpoint->base_host_changed) }}</dd>
                 </div>
                 <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Redirect Followed</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $boolLabel($endpoint->redirect_followed) }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Redirect Count</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $endpoint->redirect_count ?? '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">HTTP To HTTPS Redirect</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $boolLabel($endpoint->http_to_https_redirect) }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Cached Content Length</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">
+                        {{ is_string($endpoint->page_content) ? mb_strlen($endpoint->page_content, 'UTF-8').' chars' : '--' }}
+                    </dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered Capture Status</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $endpoint->rendered_capture_status ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered Page Title</dt>
+                    <dd class="px-5 py-3 text-sm text-slate-900 break-all">{{ $endpoint->rendered_page_title ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered Text Length</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ is_string($endpoint->rendered_page_text) ? mb_strlen($endpoint->rendered_page_text, 'UTF-8').' chars' : '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered HTML Length</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ is_string($endpoint->rendered_page_content) ? mb_strlen($endpoint->rendered_page_content, 'UTF-8').' chars' : '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered Capture Time</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $endpoint->rendered_capture_duration_ms !== null ? $endpoint->rendered_capture_duration_ms.' ms' : '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered Captured At</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ \App\Support\DateTimeDisplay::format($endpoint->rendered_captured_at) }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 lg:col-span-2 sm:grid-cols-[180px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Rendered Capture Error</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $endpoint->rendered_capture_error ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[180px_1fr]">
                     <dt class="px-5 py-3 text-sm font-medium text-slate-600">Created At</dt>
                     <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ \App\Support\DateTimeDisplay::format($endpoint->created_at) }}</dd>
                 </div>
@@ -299,9 +385,9 @@
                     <dd class="px-5 py-3 text-sm text-slate-900">
                         @if (count($securityHeaders) > 0)
                             <ul class="space-y-1">
-                                @foreach ($securityHeaders as $header => $detail)
+                                @foreach ($securityHeaders as $headerName => $detail)
                                     @php($present = is_array($detail) ? ($detail['present'] ?? false) : (bool) $detail)
-                                    <li class="font-mono break-all">{{ $header }}: {{ $present ? 'present' : 'missing' }}</li>
+                                    <li class="font-mono break-all">{{ $headerName }}: {{ $present ? 'present' : 'missing' }}</li>
                                 @endforeach
                             </ul>
                         @else
@@ -310,6 +396,128 @@
                     </dd>
                 </div>
             </dl>
+        </section>
+
+        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div class="border-b border-slate-200 px-5 py-4">
+                <h2 class="text-lg font-semibold text-slate-900">AI Details</h2>
+            </div>
+            <dl class="grid grid-cols-1 lg:grid-cols-2">
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Prepared Input Status</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $pageAnalysisInput->shouldAnalyze ? 'ready' : 'skipped' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Prepared Skip Reason</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $pageAnalysisInput->skipReason ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Prepared Input Hash</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $pageAnalysisInput->inputHash ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Prepared Character Count</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $pageAnalysisInput->inputCharacterCount ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Analysis Status</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $latestPageAnalysis?->status ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Page Status</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $latestPageAnalysis?->page_status ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Confidence</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $latestPageAnalysis?->confidence !== null ? $latestPageAnalysis->confidence : '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Model</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $latestPageAnalysis?->model ?: config('services.openai.model', '--') }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Directive Version</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $latestPageAnalysis?->directive_version ?: ($pageAnalysisInput->payload['directive_version'] ?? '--') }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Recorded Input Hash</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $latestPageAnalysis?->input_hash ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Recorded Character Count</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $latestPageAnalysis?->input_character_count !== null ? $latestPageAnalysis->input_character_count : '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Analysis Response Time</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ $latestPageAnalysis?->response_time_ms !== null ? $latestPageAnalysis->response_time_ms.' ms' : '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Failure Category</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $latestPageAnalysis?->failure_category ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Error Message</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">{{ $latestPageAnalysis?->error_message ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 lg:col-span-2 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Summary</dt>
+                    <dd class="px-5 py-3 text-sm text-slate-900">{{ $latestPageAnalysis?->summary ?: '--' }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 lg:col-span-2 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Reasons</dt>
+                    <dd class="px-5 py-3 text-sm text-slate-900">
+                        @if (is_array($latestPageAnalysis?->reasons) && count($latestPageAnalysis->reasons) > 0)
+                            <ul class="list-disc space-y-1 pl-5">
+                                @foreach ($latestPageAnalysis->reasons as $reason)
+                                    <li>{{ $reason }}</li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <span class="font-mono">--</span>
+                        @endif
+                    </dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 lg:col-span-2 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Signals</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900 break-all">
+                        {{ is_array($latestPageAnalysis?->signals) && count($latestPageAnalysis->signals) > 0 ? json_encode($latestPageAnalysis->signals, JSON_UNESCAPED_SLASHES) : '--' }}
+                    </dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Queued At</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ \App\Support\DateTimeDisplay::format($latestPageAnalysis?->queued_at) }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Started At</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ \App\Support\DateTimeDisplay::format($latestPageAnalysis?->started_at) }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Completed At</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ \App\Support\DateTimeDisplay::format($latestPageAnalysis?->completed_at) }}</dd>
+                </div>
+                <div class="grid grid-cols-1 border-b border-slate-200 sm:grid-cols-[220px_1fr]">
+                    <dt class="px-5 py-3 text-sm font-medium text-slate-600">Failed At</dt>
+                    <dd class="px-5 py-3 font-mono text-sm text-slate-900">{{ \App\Support\DateTimeDisplay::format($latestPageAnalysis?->failed_at) }}</dd>
+                </div>
+            </dl>
+
+            <details class="border-t border-slate-200">
+                <summary class="cursor-pointer px-5 py-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">Prepared Input JSON</summary>
+                <div class="flex items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 px-5 py-3">
+                    <p class="text-sm text-slate-600">Generated from the current endpoint snapshot.</p>
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input class="rounded border-slate-300 text-slate-900 shadow-sm focus:border-slate-500 focus:ring-slate-500" type="checkbox" x-model="wrapPreparedInput">
+                        <span>Line wrap</span>
+                    </label>
+                </div>
+                <div class="border-t border-slate-200">
+                    @if ($pageAnalysisInput->inputText !== '')
+                        <pre class="source-code line-numbers language-json" x-bind:class="{ 'source-wrap': wrapPreparedInput }"><code class="language-json">{{ $pageAnalysisInput->inputText }}</code></pre>
+                    @else
+                        <p class="px-5 py-6 text-sm text-slate-600">Prepared input is unavailable because this endpoint is skipped: {{ $pageAnalysisInput->skipReason ?: 'unknown' }}.</p>
+                    @endif
+                </div>
+            </details>
         </section>
 
         <div

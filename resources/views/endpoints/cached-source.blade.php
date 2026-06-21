@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex, nofollow">
-        <title>View Source - {{ $endpoint->page_title ?: $endpoint->location }}</title>
+        <title>View Source - {{ $endpoint->rendered_page_title ?: ($endpoint->page_title ?: $endpoint->location) }}</title>
         @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/cached-source.js'])
         <style>
             pre.source-code {
@@ -31,8 +31,10 @@
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1 class="text-sm font-semibold text-slate-900">
-                        Cached Source View ({{ \App\Support\DateTimeDisplay::format($endpoint->last_checked_at) }})
-                        <span class="font-semibold text-rose-700">NOTE: URLs have been updated to absolute.</span>
+                        {{ $cachedContentSource === 'rendered' ? 'Rendered Source View' : 'Cached Source View' }} ({{ \App\Support\DateTimeDisplay::format($cachedContentSource === 'rendered' ? $endpoint->rendered_captured_at : $endpoint->last_checked_at) }})
+                        @if ($cachedContentSource === 'cached')
+                            <span class="font-semibold text-rose-700">NOTE: URLs have been updated to absolute.</span>
+                        @endif
                     </h1>
                     <p class="font-mono text-xs text-slate-600 break-all">{{ $endpoint->resolved_url ?: $endpoint->location }}</p>
                 </div>
@@ -41,13 +43,13 @@
                         <input class="rounded border-slate-300 text-slate-900 shadow-sm focus:border-slate-500 focus:ring-slate-500" type="checkbox" x-model="wrap">
                         <span>Line wrap</span>
                     </label>
-                    <a class="inline-flex items-center justify-center rounded-md border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-rose-100" href="{{ route('endpoints.cached', $endpoint) }}">View Cached Page</a>
+                    <a class="inline-flex items-center justify-center rounded-md border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-rose-100" href="{{ route('endpoints.cached', $endpoint) }}">View {{ $cachedContentSource === 'rendered' ? 'Rendered' : 'Cached' }} Page</a>
                 </div>
             </div>
         </header>
 
         <main>
-            <pre class="source-code line-numbers language-html" x-bind:class="{ 'source-wrap': wrap }"><code class="language-html">{{ $endpoint->page_content }}</code></pre>
+            <pre class="source-code line-numbers language-html" x-bind:class="{ 'source-wrap': wrap }"><code class="language-html">{{ $cachedContent }}</code></pre>
         </main>
     </body>
 </html>

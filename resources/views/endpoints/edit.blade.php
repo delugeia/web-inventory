@@ -18,13 +18,23 @@
         @method('PUT')
 
         <div>
+            <label class="block text-sm font-medium text-slate-700" for="location">Location</label>
+            <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900" id="location" name="location" type="text" required value="{{ old('location', $endpoint->location) }}">
+        </div>
+
+        <div>
             <label class="block text-sm font-medium text-slate-700" for="name">Name</label>
             <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900" id="name" name="name" type="text" value="{{ old('name', $endpoint->name) }}">
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-700" for="location">Location</label>
-            <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900" id="location" name="location" type="text" required value="{{ old('location', $endpoint->location) }}">
+            <label class="block text-sm font-medium text-slate-700" for="managed_by">Managed By</label>
+            <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900" id="managed_by" name="managed_by" type="text" value="{{ old('managed_by', $endpoint->managed_by) }}">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700" for="dns_provider">DNS Provider</label>
+            <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900" id="dns_provider" name="dns_provider" type="text" value="{{ old('dns_provider', $endpoint->dns_provider) }}">
         </div>
 
         <button class="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800" type="submit">Save</button>

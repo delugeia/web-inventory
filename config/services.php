@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-5.5'),
+        'organization' => env('OPENAI_ORGANIZATION'),
+        'project' => env('OPENAI_PROJECT'),
+        'timeout_seconds' => env('OPENAI_TIMEOUT_SECONDS', 30),
+        'max_input_chars' => env('OPENAI_MAX_INPUT_CHARS', 50000),
+        'analysis_enabled' => env('OPENAI_ANALYSIS_ENABLED', false),
+    ],
+
 ];

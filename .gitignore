@@ -37,6 +37,7 @@ auth.json
 .phpactor.json
 .phpunit.result.cache
 /.phpunit.cache
+/.codex-temp
 
 # Local VM config
 Homestead.json
@@ -45,3 +46,5 @@ Homestead.yaml
 # Local Markdown notes. README.md is the only tracked Markdown file.
 *.md
 !README.md
+!OPENAI-API-SETUP.md
+!DEPLOYMENT-INSTRUCTIONS.md

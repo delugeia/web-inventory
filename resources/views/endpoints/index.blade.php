@@ -40,7 +40,10 @@
                         <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'location', 'direction' => $sort === 'location' && $direction === 'asc' ? 'desc' : 'asc']) }}">Location</a>
                     </th>
                     <th class="px-4 py-3 font-medium">
-                        <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'name', 'direction' => $sort === 'name' && $direction === 'asc' ? 'desc' : 'asc']) }}">Name</a>
+                        <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'managed_by', 'direction' => $sort === 'managed_by' && $direction === 'asc' ? 'desc' : 'asc']) }}">Managed By</a>
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'dns_provider', 'direction' => $sort === 'dns_provider' && $direction === 'asc' ? 'desc' : 'asc']) }}">DNS Provider</a>
                     </th>
                     <th class="px-4 py-3 font-medium">
                         <a class="inline-flex items-center gap-1 hover:text-slate-900" href="{{ route('endpoints.index', ['q' => $search !== '' ? $search : null, 'per_page' => $perPage, 'sort' => 'resolved_url', 'direction' => $sort === 'resolved_url' && $direction === 'asc' ? 'desc' : 'asc']) }}">Resolved URL</a>
@@ -66,7 +69,10 @@
                             </a>
                         </td>
                         <td class="p-0">
-                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->name }}</a>
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->managed_by ?: '--' }}</a>
+                        </td>
+                        <td class="p-0">
+                            <a class="block px-4 py-3 text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">{{ $endpoint->dns_provider ?: '--' }}</a>
                         </td>
                         <td class="p-0">
                             <a class="block px-4 py-3 text-slate-700 break-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset" href="{{ $detailsUrl }}">
@@ -92,7 +98,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td class="px-4 py-6 text-center text-slate-500" colspan="5">No endpoints yet.</td>
+                        <td class="px-4 py-6 text-center text-slate-500" colspan="6">No endpoints yet.</td>
                     </tr>
                 @endforelse
             </tbody>

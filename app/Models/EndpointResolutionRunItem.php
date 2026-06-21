@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EndpointResolutionRunItem extends Model
 {
@@ -58,5 +59,10 @@ class EndpointResolutionRunItem extends Model
     public function endpoint(): BelongsTo
     {
         return $this->belongsTo(Endpoint::class);
+    }
+
+    public function pageAnalyses(): HasMany
+    {
+        return $this->hasMany(EndpointPageAnalysis::class);
     }
 }

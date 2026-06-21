@@ -28,6 +28,8 @@ class UpdateEndpointRequest extends FormRequest
         return [
             'location' => ['required', 'string', 'max:2048'],
             'name' => ['nullable', 'string', 'max:255'],
+            'managed_by' => ['nullable', 'string', 'max:255'],
+            'dns_provider' => ['nullable', 'string', 'max:255'],
         ];
     }
 }
